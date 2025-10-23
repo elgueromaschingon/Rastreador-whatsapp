@@ -1,0 +1,51 @@
+name: Build Android APK (unzip + generate wrapper if placeholder + build)
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Show repo root (diagnostic)
+        run: |
+          echo '---- repo root listing ----'
+          ls -la
+          echo '---- end repo root listing ----'
+        shell: bash
+
+      - name: Set up Java 11
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '11'
+
+      - name: Install common packages (wget/unzip/gradle)
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y wget unzip git ca-certificates apt-transport-https gnupg
+          sudo apt-get install -y gradle
+        shell: bash
+
+      - name: Install Android commandline tools and SDK packages
+        run: |
+          # use runner temp for SDK
+          ANDROID_SDK_ROOT="$RUNNER_TEMP/android-sdk"
+          mkdir -p "$ANDROID_SDK_ROOT/cmdline-tools"
+          wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O cmdline.zip
+          unzip -q cmdline.zip -d "$ANDROID_SDK_ROOT/cmdline-tools"
+          mkdir -p "$ANDROID_SDK_ROOT/cmdline-tools/latest"
+          mv "$ANDROID_SDK_ROOT/cmdline-tools/cmdline-tools/"* "$ANDROID_SDK_ROOT/cmdline-tools/latest/" || true
+          export PATH="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$PATH"
+          yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$ANDROID_SDK_ROOT" "platform-tools" "platforms;android-33" "build-tools;33.0.2" || true
+        shell: bash
+
+      - name: If there's a zip, list and unzip to extracted/
+        run
